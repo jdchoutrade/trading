@@ -59,7 +59,7 @@ Use `npm run cf:dev` with Docker running. Add local-only values in `.dev.vars` (
 
 ## Git connected Cloudflare builds
 
-Connect this repository as a **Worker with Workers Builds**, since the deployment includes a Container and Durable Object. Use `npm run build` as the Build command and `npx wrangler deploy` as the Deploy command. The obsolete Bun lockfile has been removed; `package-lock.json` is the dependency lockfile for this npm project. Do not configure this as a Pages-only static deployment, which would omit the backend Container.
+Connect this repository as a **Worker with Workers Builds**, since the deployment includes a Container and Durable Object. The Worker name in `wrangler.jsonc` must match the connected Worker (`trading`). Use `npm run build` as the Build command and `npx wrangler deploy` as the Deploy command. The obsolete Bun lockfile has been removed; `package-lock.json` is the dependency lockfile for this npm project. Do not configure this as a Pages-only static deployment, which would omit the backend Container.
 
 ## Data and operating notes
 
