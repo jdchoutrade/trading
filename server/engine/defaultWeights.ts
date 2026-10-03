@@ -1,0 +1,85 @@
+export interface FactorWeights {
+  S: number;
+  H: number;
+  F: number;
+  K: number;
+  O: number;
+  T: number;
+  REG: number;
+  '4H': number;
+  D1: number;
+  VWAP: number;
+  MOM: number;
+  RAIL: number;
+  XA: number;   // Cross-Asset Alignment
+  COR: number;  // Correlation Matrix
+  MAC: number;  // Macro Fundamentals
+  NEWS: number; // News / Headline Events
+  GEO: number;  // Geopolitical Risk Index
+}
+
+export interface RegimeWeightsConfig {
+  TREND: FactorWeights;
+  RANGE: FactorWeights;
+  HIGH_VOLATILITY: FactorWeights;
+}
+
+export const DEFAULT_WEIGHTS: RegimeWeightsConfig = {
+  TREND: {
+    S: 14,
+    H: 14,
+    F: 9,
+    K: 8,
+    O: 10,
+    T: 7,
+    REG: 8,
+    '4H': 7,
+    D1: 5,
+    VWAP: 5,
+    MOM: 5,
+    RAIL: 4,
+    XA: 6,
+    COR: 5,
+    MAC: 5,
+    NEWS: 4,
+    GEO: 4,
+  },
+  RANGE: {
+    S: 7,
+    H: 7,
+    F: 8,
+    K: 16,
+    O: 12,
+    T: 8,
+    REG: 9,
+    '4H': 4,
+    D1: 4,
+    VWAP: 5,
+    MOM: 6,
+    RAIL: 6,
+    XA: 7,
+    COR: 6,
+    MAC: 5,
+    NEWS: 5,
+    GEO: 5,
+  },
+  HIGH_VOLATILITY: {
+    S: 10,
+    H: 10,
+    F: 7,
+    K: 12,
+    O: 9,
+    T: 7,
+    REG: 12,
+    '4H': 5,
+    D1: 4,
+    VWAP: 5,
+    MOM: 6,
+    RAIL: 5,
+    XA: 7,
+    COR: 6,
+    MAC: 5,
+    NEWS: 8,
+    GEO: 8,
+  },
+};

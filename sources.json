@@ -1,0 +1,82 @@
+{
+  "sources": [
+    {
+      "id": "gdelt-gold-events",
+      "name": "GDELT Global Conflict & Event Stream",
+      "url": "https://api.gdeltproject.org/api/v2/doc/doc?query=(gold%20OR%20xauusd%20OR%20fed%20OR%20inflation%20OR%20war%20OR%20conflict%20OR%20tariffs)&mode=artlist&maxrecords=30&format=json",
+      "type": "GDELT",
+      "tier": 1,
+      "pollIntervalSeconds": 60,
+      "enabled": true
+    },
+    {
+      "id": "federal-reserve-rss",
+      "name": "Federal Reserve Press Releases",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "type": "RSS",
+      "tier": 1,
+      "pollIntervalSeconds": 180,
+      "enabled": true
+    },
+    {
+      "id": "bls-cpi-ppi",
+      "name": "Bureau of Labor Statistics Consumer Price Index",
+      "url": "https://www.bls.gov/feed/cpi.rss",
+      "type": "RSS",
+      "tier": 1,
+      "pollIntervalSeconds": 300,
+      "enabled": true
+    },
+    {
+      "id": "bls-employment-situation",
+      "name": "Bureau of Labor Statistics Employment Situation (NFP)",
+      "url": "https://www.bls.gov/feed/empsit.rss",
+      "type": "RSS",
+      "tier": 1,
+      "pollIntervalSeconds": 300,
+      "enabled": true
+    },
+    {
+      "id": "bls-ppi",
+      "name": "Bureau of Labor Statistics Producer Price Index",
+      "url": "https://www.bls.gov/feed/ppi.rss",
+      "type": "RSS",
+      "tier": 1,
+      "pollIntervalSeconds": 300,
+      "enabled": true
+    },
+    {
+      "id": "world-gold-council",
+      "name": "World Gold Council Market Updates",
+      "url": "https://www.gold.org/goldhub/rss/feed",
+      "type": "RSS",
+      "tier": 2,
+      "pollIntervalSeconds": 600,
+      "enabled": true
+    },
+    {
+      "id": "marketaux-news",
+      "name": "Marketaux Commodities Feed",
+      "url": "https://api.marketaux.com/v1/news/all?symbols=XAUUSD,GOLD&filter_entities=true",
+      "type": "NEWS_API",
+      "tier": 2,
+      "pollIntervalSeconds": 120,
+      "apiKeyEnv": "MARKETAUX_API_KEY",
+      "enabled": true
+    }
+  ],
+  "macroSeries": [
+    {
+      "id": "DFII10",
+      "name": "10-Year Real Interest Rate (TIPS)",
+      "source": "FRED",
+      "frequency": "daily"
+    },
+    {
+      "id": "DFF",
+      "name": "Effective Federal Funds Rate",
+      "source": "FRED",
+      "frequency": "daily"
+    }
+  ]
+}

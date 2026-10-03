@@ -1,0 +1,6 @@
+{
+  "name": "QRA Gold Terminal - Advanced SMC/ICT Technical Analysis",
+  "description": "High-precision Smart Money Concepts (SMC) & ICT quantitative trading terminal for XAUUSD and multi-asset markets with AI verification, real-time liquidity mapping, and automated confirmation engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

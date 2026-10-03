@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "name": "QRA Institutional Outcome Rules",
+  "updatedAt": "2026-10-01T00:00:00.000Z",
+  "classification": {
+    "winThresholdR": 0.25,
+    "lossThresholdR": -0.25,
+    "beLowerR": -0.25,
+    "beUpperR": 0.25
+  },
+  "execution": {
+    "spreadAware": true,
+    "buyEntryPriceType": "ASK",
+    "buyExitPriceType": "BID",
+    "sellEntryPriceType": "BID",
+    "sellExitPriceType": "ASK",
+    "defaultSpreadGold": 0.35,
+    "sameBarAmbiguityPolicy": "CONSERVATIVE_SL_FIRST",
+    "staleDataTimeoutMs": 3000,
+    "maxSlippagePoints": 0.5
+  },
+  "management": {
+    "tp1PartialClosePercent": 50,
+    "tp2PartialClosePercent": 30,
+    "tp3PartialClosePercent": 20,
+    "moveSlToBreakEvenAtTp1": true,
+    "breakEvenBufferR": 0.05,
+    "maxCandlesTimeStop": 48
+  },
+  "statistics": {
+    "minSampleOverall": 30,
+    "minSampleSegment": 20,
+    "confidenceLevel": 0.95,
+    "insufficientSampleText": "insufficient sample"
+  },
+  "confluenceStatistics": {
+    "representativeOutcome": "INDICATOR",
+    "countPerGroup": 1,
+    "groupAgreement": "BOTH_SAME_DIR"
+  }
+}
