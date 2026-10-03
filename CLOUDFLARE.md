@@ -57,6 +57,10 @@ The Worker keeps `/api/*`, `/ws` and `/health` on the backend; all other routes 
 
 Use `npm run cf:dev` with Docker running. Add local-only values in `.dev.vars` (which is git-ignored); never commit that file. `wrangler.jsonc` keeps the R2 binding and routes consistent with production.
 
+## Git connected Cloudflare builds
+
+Connect this repository as a **Worker with Workers Builds**, since the deployment includes a Container and Durable Object. Use `npm run build` as the Build command and `npx wrangler deploy` as the Deploy command. The obsolete Bun lockfile has been removed; `package-lock.json` is the dependency lockfile for this npm project. Do not configure this as a Pages-only static deployment, which would omit the backend Container.
+
 ## Data and operating notes
 
 - The Docker build deliberately excludes `.env`, `data/` and local SQLite files. A first deployment starts with a new cloud history; it does not upload this computer's existing trading records.
