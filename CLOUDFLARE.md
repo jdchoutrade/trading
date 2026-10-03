@@ -26,6 +26,8 @@ The Worker keeps `/api/*`, `/ws` and `/health` on the backend; all other routes 
    npx wrangler r2 bucket create qra-gold-terminal-backups
    ```
 
+   Create it in the same Cloudflare account that owns the `trading` Worker. Before retrying a failed deployment, verify the exact bucket name in the R2 dashboard or run `npx wrangler r2 bucket list` with credentials for that account. A bucket in another account is not visible to this Worker.
+
 3. Add the required internal token. Generate a random value locally and paste it into Wrangler's prompt; use the same Worker-managed secret for the Worker and Container binding:
 
    ```sh
