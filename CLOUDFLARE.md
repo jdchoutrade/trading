@@ -63,6 +63,20 @@ For the regular localhost server, copy `.env.example` to `.env`, add your Neon p
 
 For `npm run cf:dev`, use `.dev.vars` for local-only Cloudflare Worker secrets (it is git-ignored); add `NEON_DATABASE_URL` and set `NEON_SNAPSHOT_SCOPE=localhost` there. Never commit `.env` or `.dev.vars`.
 
+## Fix a Git connected build failing at `/containers/me`
+
+The supplied build log confirms that dependency installation, the Vite build, Docker image build, asset upload, and Worker upload all completed. The failure happens when Wrangler asks the Containers API to manage the backend. This project cannot deploy its API/live-feed backend without Cloudflare Containers access; removing the Container binding would only publish the frontend and leave `/api/*` and `/ws` broken.
+
+In Cloudflare, open **Workers & Pages → `trading` → Settings → Builds → API token**. Select a user API token scoped to this account with:
+
+- **Account → Containers: Edit**
+- **Account → Workers Scripts: Edit**
+- **Zone → Workers Routes: Edit** only if this Worker is also changing a custom domain or route
+
+The default token generated for Workers Builds includes Workers Scripts, KV and R2 permissions, but does not include Containers permission. After selecting the corrected token, rerun the production build. Also confirm the account is on **Workers Paid**, which is required for Containers. If the corrected token and paid plan are already in place, the short log is missing the API response details; inspect the full Wrangler log or run `npm run cf:deploy` locally while authenticated with `npx wrangler login` to distinguish a Workers Builds token issue from account entitlement.
+
+Cloudflare can upload and activate the Worker before the Container deployment fails, so an uploaded Worker or visible static dashboard does not confirm the backend deployed successfully.
+
 ## Git connected Cloudflare builds
 
 Connect this repository as a **Worker with Workers Builds**, since the deployment includes a Container and Durable Object. The Worker name in `wrangler.jsonc` must match the connected Worker (`trading`). Use `npm run build` as the Build command and `npx wrangler deploy` as the Deploy command. The obsolete Bun lockfile has been removed; `package-lock.json` is the dependency lockfile for this npm project. Do not configure this as a Pages-only static deployment, which would omit the backend Container.
