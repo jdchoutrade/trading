@@ -323,6 +323,8 @@ export const IndicatorsPage: React.FC = () => {
   const plan = snapshot?.tradePlan;
   const isBuy = snapshot?.verdict === 'BUY' || snapshot?.verdict === 'BUY_LEANS';
   const progressScore = Math.max(snapshot?.buyScore || 0, snapshot?.sellScore || 0);
+  const compositeSignal = snapshot?.compositeSignal;
+  const compositeMarker = compositeSignal ? `${((compositeSignal.score + 1) / 2) * 100}%` : '50%';
   const aiReview = aiReviewSnapshot?.review;
   const aiReviewFresh = Boolean(
     aiReview
@@ -577,6 +579,85 @@ export const IndicatorsPage: React.FC = () => {
             <p className="text-xs text-slate-300 font-mono leading-relaxed">
               {snapshot?.regime.description || 'Analyzing market equilibrium...'}
             </p>
+          </div>
+
+          {/* Regime-aware five-family composite indicator ensemble */}
+          <div className="bg-[#0e131d] rounded-xl border border-cyan-500/20 p-3.5 shadow-lg space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-mono font-bold text-slate-200">COMPOSITE SIGNAL</div>
+                <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                  {compositeSignal
+                    ? `${compositeSignal.regime.replace('_', ' ')} · ${compositeSignal.availableFamilies}/5 families · weights normalized`
+                    : 'Waiting for sufficient market data'}
+                </div>
+              </div>
+              <span className={`px-2 py-1 rounded border text-[11px] font-mono font-bold ${
+                compositeSignal?.action === 'LONG'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  : compositeSignal?.action === 'SHORT'
+                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                    : 'bg-white/[0.04] text-slate-300 border-white/[0.08]'
+              }`}>
+                {compositeSignal?.action || 'WAIT'}
+              </span>
+            </div>
+
+            {compositeSignal ? (
+              <>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-mono text-slate-500">
+                    <span>SHORT −1</span>
+                    <span>NEUTRAL 0</span>
+                    <span>LONG +1</span>
+                  </div>
+                  <div className="h-2 rounded-full relative bg-gradient-to-r from-rose-500 via-slate-600 to-emerald-500">
+                    <div
+                      className="absolute top-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-[#0e131d] shadow -translate-x-1/2 -translate-y-1/2 transition-all"
+                      style={{ left: compositeMarker }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] font-mono">
+                    <span className="text-slate-500">
+                      {compositeSignal.availableFamilies >= 3
+                        ? `Entry band ±${compositeSignal.entryThreshold.toFixed(2)}`
+                        : 'Need 3+ active families to qualify'}
+                    </span>
+                    <span className={`font-bold ${compositeSignal.score > 0 ? 'text-emerald-300' : compositeSignal.score < 0 ? 'text-rose-300' : 'text-slate-300'}`}>
+                      {compositeSignal.score >= 0 ? '+' : ''}{compositeSignal.score.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  {compositeSignal.families.map((family) => (
+                    <div
+                      key={family.key}
+                      title={family.evidence}
+                      className={`min-w-0 rounded-lg border p-2 ${family.available ? 'bg-black/20 border-white/[0.07]' : 'bg-black/10 border-white/[0.04] opacity-60'}`}
+                    >
+                      <div className="flex items-center justify-between gap-1 text-[10px] font-mono">
+                        <span className="truncate text-slate-300">{family.name}</span>
+                        <span className="shrink-0 text-slate-500">{family.effectiveWeight.toFixed(0)}%</span>
+                      </div>
+                      <div className={`mt-1 text-xs font-mono font-bold ${
+                        !family.available ? 'text-slate-500' : family.score > 0.08 ? 'text-emerald-300' : family.score < -0.08 ? 'text-rose-300' : 'text-slate-300'
+                      }`}>
+                        {family.available ? `${family.score >= 0 ? '+' : ''}${family.score.toFixed(2)}` : 'N/A'}
+                      </div>
+                      <div className="mt-1 text-[9px] leading-relaxed text-slate-500 line-clamp-2">{family.evidence}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[9px] leading-relaxed text-slate-500">
+                  Advisory composite bias; it contributes 20% to the engine score. Signal history still requires the existing SMC setup and risk checks.
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] font-mono text-slate-500">
+                Indicator families will appear when enough live candles are available. Missing volume is excluded from the normalized weights.
+              </p>
+            )}
           </div>
 
           {/* 2. BEST PLACE TO ENTER Card */}

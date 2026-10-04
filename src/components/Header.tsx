@@ -83,12 +83,15 @@ export const Header: React.FC<{ mobileMenuOpen: boolean; onMenuClick: () => void
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F5C451] via-[#E1A729] to-[#8C6400] flex items-center justify-center shadow-lg shadow-[#F5C451]/10">
-            <span className="font-mono font-bold text-black text-xs tracking-tighter">QRA</span>
-          </div>
+          <img
+            src="/qra-gold-terminal-mark.svg"
+            alt=""
+            aria-hidden="true"
+            className="w-9 h-9 shrink-0 drop-shadow-[0_0_8px_rgba(245,196,81,0.16)]"
+          />
           <div className="hidden sm:block">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold tracking-wider text-slate-100 font-mono">JD QRA TERMINAL</span>
+              <span className="text-xs font-bold tracking-wider text-slate-100 font-mono">QRA GOLD TERMINAL</span>
               <span className="text-[10px] px-1 py-0.2 rounded font-mono bg-[#F5C451]/15 text-[#F5C451] border border-[#F5C451]/30">
                 PRO
               </span>

@@ -5,6 +5,7 @@ export interface Candle {
   low: number;
   close: number;
   volume: number;
+  volumeIsSynthetic?: boolean;
   isForming?: boolean; // V2: distinguishes forming live bar from officially closed bar
 }
 
@@ -382,6 +383,7 @@ export interface FullAnalysisResult {
   sellFactors: FactorDetail[];
   buyScore: number;
   sellScore: number;
+  compositeSignal?: CompositeSignal;
   verdict: SignalVerdict;
   grade: SignalGrade;
   signalLock: SignalLock;
@@ -398,6 +400,28 @@ export interface FullAnalysisResult {
   activeShock?: ShockAlert;
   analysisStages?: AnalysisStage[];
   scheduledEvents?: ScheduledEconomicEvent[];
+}
+
+export type CompositeStrategyFamily = 'TREND' | 'MOMENTUM' | 'MEAN_REVERSION' | 'VOLUME' | 'VOLATILITY';
+
+export interface CompositeFamilyScore {
+  key: CompositeStrategyFamily;
+  name: string;
+  score: number; // -1 (bearish) to +1 (bullish)
+  baseWeight: number;
+  effectiveWeight: number; // normalized percentage across available families
+  available: boolean;
+  evidence: string;
+}
+
+export interface CompositeSignal {
+  score: number; // -1 (short) to +1 (long)
+  scorePercent: number;
+  action: 'LONG' | 'WAIT' | 'SHORT';
+  entryThreshold: number;
+  regime: 'TREND' | 'RANGE' | 'HIGH_VOLATILITY';
+  availableFamilies: number;
+  families: CompositeFamilyScore[];
 }
 
 export interface CalibrationBucket {

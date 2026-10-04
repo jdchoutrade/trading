@@ -73,6 +73,15 @@ In **Worker Settings → Builds → API token**, select a user API token scoped 
 
 If a build completes the Vite and Docker steps, uploads the Worker, then fails at `/accounts/<account>/containers/me`, the frontend bundle and Dockerfile are not the failing steps. Confirm the account is on Workers Paid and the selected Workers Builds API token has **Containers Edit** for that exact account. If both are already set, open the full build log and check the HTTP status/response body for the Containers API request; the short Wrangler summary may omit the reason.
 
+To distinguish a Workers Builds token problem from an account-plan/access problem, deploy once from a machine authenticated with Wrangler directly:
+
+```sh
+npx wrangler login
+npm run cf:deploy
+```
+
+This publishes the Worker and Container to the Cloudflare account selected by Wrangler. If it succeeds while Git-connected Builds still fails, replace the API token selected under **Worker Settings → Builds** with one that has the permissions listed above. If the direct deploy also fails at `/containers/me`, verify the account's Workers Paid plan and Containers access; changing this repository cannot grant those account permissions.
+
 ## Data and operating notes
 
 - The Docker build deliberately excludes `.env`, `data/` and local SQLite files. A first deployment starts with a new cloud history; it does not upload this computer's existing trading records.

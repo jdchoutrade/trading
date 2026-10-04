@@ -24,6 +24,7 @@ export interface VolumeAnalysis {
   vwap: number;
   vwapUpper: number;
   vwapLower: number;
+  vwapAvailable: boolean;
   priceVsVwap: 'ABOVE' | 'BELOW' | 'AT_VWAP';
 }
 
@@ -119,6 +120,7 @@ export function analyzeVolumeAndVWAP(candles: Candle[]): VolumeAnalysis {
       vwap: p,
       vwapUpper: p + 5,
       vwapLower: p - 5,
+      vwapAvailable: false,
       priceVsVwap: 'AT_VWAP',
     };
   }
@@ -129,17 +131,22 @@ export function analyzeVolumeAndVWAP(candles: Candle[]): VolumeAnalysis {
   const curVwap = vwapResult.vwap[lastIdx];
   const upperVwap = vwapResult.upperBand[lastIdx];
   const lowerVwap = vwapResult.lowerBand[lastIdx];
+  const vwapAvailable = candles.some((candle) => !candle.volumeIsSynthetic && Number.isFinite(candle.volume) && candle.volume > 0);
 
   // Volume SMA 20
   const volSlice = candles.slice(Math.max(0, candles.length - 21), candles.length - 1);
-  const sumVol = volSlice.reduce((acc, c) => acc + (c.volume || 1), 0);
-  const smaVolume = sumVol / (volSlice.length || 1);
-  const currentVolume = currentCandle.volume || 1;
-  const volumeRatio = Number((currentVolume / (smaVolume || 1)).toFixed(2));
+  const observedVolSlice = volSlice.filter((candle) => !candle.volumeIsSynthetic && Number.isFinite(candle.volume) && candle.volume > 0);
+  const sumVol = observedVolSlice.reduce((acc, c) => acc + c.volume, 0);
+  const smaVolume = sumVol / (observedVolSlice.length || 1);
+  const currentVolume = !currentCandle.volumeIsSynthetic && Number.isFinite(currentCandle.volume) && currentCandle.volume > 0
+    ? currentCandle.volume
+    : 0;
+  const volumeRatio = currentVolume > 0 && smaVolume > 0 ? Number((currentVolume / smaVolume).toFixed(2)) : 0;
   const isVolumeSpike = volumeRatio >= 1.8;
 
-  const priceVsVwap =
-    currentCandle.close > curVwap + 0.5 ? 'ABOVE' : currentCandle.close < curVwap - 0.5 ? 'BELOW' : 'AT_VWAP';
+  const priceVsVwap = !vwapAvailable
+    ? 'AT_VWAP'
+    : currentCandle.close > curVwap + 0.5 ? 'ABOVE' : currentCandle.close < curVwap - 0.5 ? 'BELOW' : 'AT_VWAP';
 
   return {
     currentVolume,
@@ -149,6 +156,7 @@ export function analyzeVolumeAndVWAP(candles: Candle[]): VolumeAnalysis {
     vwap: Number(curVwap.toFixed(2)),
     vwapUpper: Number(upperVwap.toFixed(2)),
     vwapLower: Number(lowerVwap.toFixed(2)),
+    vwapAvailable,
     priceVsVwap,
   };
 }

@@ -4,6 +4,7 @@ export interface Tick {
   price: number;
   time: number; // Unix timestamp in seconds
   volume?: number;
+  volumeIsSynthetic?: boolean;
   bid?: number;
   ask?: number;
 }
@@ -89,7 +90,8 @@ export class TickAggregator {
         high: tick.price,
         low: tick.price,
         close: tick.price,
-        volume: tick.volume || 1,
+        volume: tick.volumeIsSynthetic || !Number.isFinite(tick.volume) || (tick.volume || 0) <= 0 ? 0 : tick.volume!,
+        volumeIsSynthetic: tick.volumeIsSynthetic || !Number.isFinite(tick.volume) || (tick.volume || 0) <= 0,
         isForming: true,
       };
 
@@ -106,7 +108,12 @@ export class TickAggregator {
     current.high = Math.max(current.high, tick.price);
     current.low = Math.min(current.low, tick.price);
     current.close = tick.price;
-    current.volume = (current.volume || 0) + (tick.volume || 1);
+    if (!tick.volumeIsSynthetic && Number.isFinite(tick.volume) && (tick.volume || 0) > 0) {
+      current.volume = (current.volumeIsSynthetic ? 0 : current.volume) + tick.volume!;
+      current.volumeIsSynthetic = false;
+    } else {
+      current.volumeIsSynthetic = true;
+    }
     current.isForming = true;
 
     return {
@@ -123,7 +130,7 @@ export class TickAggregator {
   public reconcileOfficialCandle(
     symbol: string,
     tf: Timeframe,
-    official: { time: number; open: number; high: number; low: number; close: number; volume: number },
+    official: { time: number; open: number; high: number; low: number; close: number; volume: number; volumeIsSynthetic?: boolean },
     tolerance: number = 0.2 // in points ($)
   ): { isMismatch: boolean; corrected?: Candle; log?: IntegrityLogEntry } {
     const key = `${symbol}_${tf}`;
@@ -166,13 +173,23 @@ export class TickAggregator {
       current.high = Math.max(current.high, official.high);
       current.low = Math.min(current.low, official.low);
       current.close = official.close;
-      current.volume = Math.max(current.volume, official.volume);
+      if (!official.volumeIsSynthetic && Number.isFinite(official.volume) && official.volume > 0) {
+        current.volume = official.volume;
+        current.volumeIsSynthetic = false;
+      } else if (current.volumeIsSynthetic) {
+        current.volume = 0;
+      }
 
       return {
         isMismatch: true,
         corrected: { ...current },
         log: logEntry,
       };
+    }
+
+    if (!official.volumeIsSynthetic && Number.isFinite(official.volume) && official.volume > 0) {
+      current.volume = official.volume;
+      current.volumeIsSynthetic = false;
     }
 
     return { isMismatch: false };

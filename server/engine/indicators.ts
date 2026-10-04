@@ -271,7 +271,14 @@ export function calculateVWAP(candles: Candle[]): VWAPResult {
   for (let i = 0; i < n; i++) {
     const c = candles[i];
     const typicalPrice = (c.high + c.low + c.close) / 3;
-    const vol = c.volume > 0 ? c.volume : 1;
+    const vol = !c.volumeIsSynthetic && Number.isFinite(c.volume) && c.volume > 0 ? c.volume : 0;
+
+    if (vol <= 0) {
+      vwap[i] = cumulativeVol > 0 ? vwap[i - 1] : 0;
+      upperBand[i] = cumulativeVol > 0 ? upperBand[i - 1] : 0;
+      lowerBand[i] = cumulativeVol > 0 ? lowerBand[i - 1] : 0;
+      continue;
+    }
 
     cumulativeTPV += typicalPrice * vol;
     cumulativeVol += vol;

@@ -316,16 +316,18 @@ export function evaluateConfirmations(input: ConfirmationInput): ConfirmationRes
   });
 
   // VWAP
-  let vwapStatusBuy: FactorDetail['status'] = volume.priceVsVwap === 'ABOVE' || currentPrice > volume.vwap
-    ? 'pass' : regime.type === 'RANGE' ? 'partial' : 'fail';
+  let vwapStatusBuy: FactorDetail['status'] = !volume.vwapAvailable
+    ? 'na'
+    : volume.priceVsVwap === 'ABOVE' || currentPrice > volume.vwap
+      ? 'pass' : regime.type === 'RANGE' ? 'partial' : 'fail';
   buyFactors.push({
     code: 'VWAP',
     name: 'VWAP Support',
     status: vwapStatusBuy,
     weight: weights.VWAP,
     scoreContribution: evaluateScore(vwapStatusBuy, weights.VWAP),
-    reason: `Price is ${volume.priceVsVwap} VWAP (${volume.vwap.toFixed(2)})`,
-    reasonKm: `តម្លៃធៀប VWAP`,
+    reason: volume.vwapAvailable ? `Price is ${volume.priceVsVwap} observed-volume VWAP (${volume.vwap.toFixed(2)})` : 'Observed candle volume is unavailable; VWAP vote excluded',
+    reasonKm: volume.vwapAvailable ? `តម្លៃធៀប VWAP` : 'គ្មាន volume ពិតសម្រាប់ VWAP; មិនបញ្ចូលជាកត្តា',
   });
 
   // MOM
@@ -568,16 +570,18 @@ export function evaluateConfirmations(input: ConfirmationInput): ConfirmationRes
     reasonKm: 'តម្លៃក្រោម Daily Open',
   });
 
-  let vwapStatusSell: FactorDetail['status'] = volume.priceVsVwap === 'BELOW' || currentPrice < volume.vwap
-    ? 'pass' : regime.type === 'RANGE' ? 'partial' : 'fail';
+  let vwapStatusSell: FactorDetail['status'] = !volume.vwapAvailable
+    ? 'na'
+    : volume.priceVsVwap === 'BELOW' || currentPrice < volume.vwap
+      ? 'pass' : regime.type === 'RANGE' ? 'partial' : 'fail';
   sellFactors.push({
     code: 'VWAP',
     name: 'VWAP Resistance',
     status: vwapStatusSell,
     weight: weights.VWAP,
     scoreContribution: evaluateScore(vwapStatusSell, weights.VWAP),
-    reason: 'Price is BELOW VWAP',
-    reasonKm: 'តម្លៃក្រោម VWAP',
+    reason: volume.vwapAvailable ? `Price is ${volume.priceVsVwap} observed-volume VWAP (${volume.vwap.toFixed(2)})` : 'Observed candle volume is unavailable; VWAP vote excluded',
+    reasonKm: volume.vwapAvailable ? 'តម្លៃធៀប VWAP' : 'គ្មាន volume ពិតសម្រាប់ VWAP; មិនបញ្ចូលជាកត្តា',
   });
 
   let momStatusSell: FactorDetail['status'] =

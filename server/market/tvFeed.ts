@@ -253,6 +253,9 @@ export class TvFeedService {
         price: tickPayload.price,
         time: tickPayload.time,
         volume: tickPayload.volume,
+        // Quote volume is cumulative/unspecified for these ticks, so it must not
+        // be summed and presented as observed per-candle volume.
+        volumeIsSynthetic: true,
         bid: tickPayload.bid,
         ask: tickPayload.ask,
       });
@@ -296,6 +299,8 @@ export class TvFeedService {
         const high = Number(p.max ?? Math.max(open, close));
         const low = Number(p.min ?? Math.min(open, close));
         const time = Number(p.time);
+        const rawVolume = Number(p.volume);
+        const hasObservedVolume = Number.isFinite(rawVolume) && rawVolume > 0;
         const prices = [open, high, low, close];
         if (time <= 0 || prices.some((price) => !Number.isFinite(price) || price <= 0)
           || high < Math.max(open, close) || low > Math.min(open, close) || high < low) continue;
@@ -311,7 +316,8 @@ export class TvFeedService {
           high: Number(high.toFixed(2)),
           low: Number(low.toFixed(2)),
           close: Number(close.toFixed(2)),
-          volume: p.volume || 10,
+          volume: hasObservedVolume ? rawVolume : 0,
+          volumeIsSynthetic: !hasObservedVolume,
           isForming: i === 0, // newest bar is forming
         });
       }
@@ -333,6 +339,7 @@ export class TvFeedService {
             low: latestOfficial.low,
             close: latestOfficial.close,
             volume: latestOfficial.volume,
+            volumeIsSynthetic: latestOfficial.volumeIsSynthetic,
           },
           0.2
         );

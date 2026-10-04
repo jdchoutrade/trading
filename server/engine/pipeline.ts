@@ -19,6 +19,7 @@ import { analyzeCandlePatterns, analyzeMomentum, analyzeVolumeAndVWAP } from './
 import { analyzeSession } from './L9_session.ts';
 import { evaluateConfirmations } from './L10_confirmation.ts';
 import { computeSignalAndTradePlan } from './L11_scoring.ts';
+import { calculateCompositeSignal } from './compositeSignal.ts';
 import { RegimeWeightsConfig } from './defaultWeights.ts';
 
 export interface PipelineMultiTfCandles {
@@ -161,10 +162,22 @@ export function runFullAnalysisPipeline(params: {
     ],
   });
 
+  // The indicator-family ensemble contributes 20% of the final directional score.
+  // Its available family weights are normalized inside calculateCompositeSignal;
+  // absent volume/indicator data therefore cannot create a synthetic vote.
+  const compositeSignal = confirmations.isHardBlocked
+    ? null
+    : calculateCompositeSignal(candles, currentPrice, regime);
+  const compositeLongScore = compositeSignal ? ((compositeSignal.score + 1) / 2) * 100 : 0;
+  const compositeShortScore = compositeSignal ? ((1 - compositeSignal.score) / 2) * 100 : 0;
+  const compositeBlend = compositeSignal && compositeSignal.availableFamilies >= 3 ? 0.2 : 0;
+  const buyScore = Math.round(confirmations.buyScore * (1 - compositeBlend) + compositeLongScore * compositeBlend);
+  const sellScore = Math.round(confirmations.sellScore * (1 - compositeBlend) + compositeShortScore * compositeBlend);
+
   // L11: Scoring & Trade Plan
   const scoring = computeSignalAndTradePlan({
-    buyScore: confirmations.buyScore,
-    sellScore: confirmations.sellScore,
+    buyScore,
+    sellScore,
     currentPrice,
     candles,
     orderBlocks,
@@ -198,7 +211,7 @@ export function runFullAnalysisPipeline(params: {
     { index: 8, name: 'Liquidity sweep / key level', status: coreStatus('K'), evidence: directionalFactors.find((factor) => factor.code === 'K')?.reason || 'No directional verdict to validate' },
     { index: 9, name: 'Momentum confirmation', status: coreStatus('MOM'), evidence: directionalFactors.find((factor) => factor.code === 'MOM')?.reason || 'No directional verdict to validate' },
     { index: 10, name: 'Volume / VWAP confirmation', status: coreStatus('VWAP'), evidence: directionalFactors.find((factor) => factor.code === 'VWAP')?.reason || 'No directional verdict to validate' },
-    { index: 11, name: 'Score, trade plan & risk/reward', status: scoring.tradePlan?.riskRewardValid && scoring.signalLock.isLocked ? 'PASS' as const : 'FAIL' as const, evidence: `${scoring.verdict} · ${Math.max(confirmations.buyScore, confirmations.sellScore)}/100 · ${scoring.tradePlan?.riskRewardValid ? 'risk/reward valid' : 'no valid plan'}` },
+    { index: 11, name: 'Score, trade plan & risk/reward', status: scoring.tradePlan?.riskRewardValid && scoring.signalLock.isLocked ? 'PASS' as const : 'FAIL' as const, evidence: `${scoring.verdict} · ${Math.max(buyScore, sellScore)}/100 · ${compositeSignal ? `composite ${compositeSignal.scorePercent >= 0 ? '+' : ''}${compositeSignal.scorePercent}` : 'composite unavailable'} · ${scoring.tradePlan?.riskRewardValid ? 'risk/reward valid' : 'no valid plan'}` },
     { index: 12, name: 'Economic release guard', status: eventRestricted ? 'WAIT' as const : calendarAvailable ? 'PASS' as const : 'PARTIAL' as const, evidence: eventInWindow ? `${eventInWindow.country} ${eventInWindow.title} release window; wait for observed price reaction` : activeShock?.status === 'ACTIVE' ? 'Unusual price displacement is still in the five-minute cooldown' : calendarAvailable && nextHighImpactEvent ? `Next high-impact release: ${nextHighImpactEvent.country} ${nextHighImpactEvent.title} at ${new Date(nextHighImpactEvent.scheduledAt * 1000).toISOString()} (${nextHighImpactEvent.source})` : calendarAvailable ? 'Economic calendar feeds checked; no high-impact release in the loaded window' : 'Official release calendar feeds are not available yet' },
   ];
 
@@ -225,8 +238,9 @@ export function runFullAnalysisPipeline(params: {
     recentSweeps: sweeps,
     buyFactors: confirmations.buyFactors,
     sellFactors: confirmations.sellFactors,
-    buyScore: confirmations.buyScore,
-    sellScore: confirmations.sellScore,
+    buyScore,
+    sellScore,
+    compositeSignal: compositeSignal || undefined,
     verdict: scoring.verdict,
     grade: scoring.grade,
     signalLock: scoring.signalLock,

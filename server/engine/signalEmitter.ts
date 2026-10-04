@@ -158,6 +158,19 @@ export class SignalEmitter {
       inputProvenance: {
         engineVersion: config.version,
         factorEvidence,
+        compositeSignal: analysis.compositeSignal ? {
+          score: analysis.compositeSignal.score,
+          action: analysis.compositeSignal.action,
+          regime: analysis.compositeSignal.regime,
+          availableFamilies: analysis.compositeSignal.availableFamilies,
+          families: analysis.compositeSignal.families.map((family) => ({
+            key: family.key,
+            score: family.score,
+            effectiveWeight: family.effectiveWeight,
+            available: family.available,
+            evidence: family.evidence,
+          })),
+        } : null,
         technicalFactorCodes: factorEvidence.filter((factor) => technicalCodes.has(factor.code)).map((factor) => factor.code),
         contextFactorCodes: source === 'ANALYSIS'
           ? factorEvidence.filter((factor) => !technicalCodes.has(factor.code)).map((factor) => factor.code)
