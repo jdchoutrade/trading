@@ -67,13 +67,15 @@ For `npm run cf:dev`, use `.dev.vars` for local-only Cloudflare Worker secrets (
 
 The supplied build log confirms that dependency installation, the Vite build, Docker image build, asset upload, and Worker upload all completed. The failure happens when Wrangler asks the Containers API to manage the backend. This project cannot deploy its API/live-feed backend without Cloudflare Containers access; removing the Container binding would only publish the frontend and leave `/api/*` and `/ws` broken.
 
-In Cloudflare, open **Workers & Pages → `trading` → Settings → Builds → API token**. Select a user API token scoped to this account with:
+Check the Cloudflare account's **Workers Paid** subscription first. Containers are unavailable on Workers Free; Cloudflare documents them as part of Workers Paid. An identical opaque `/containers/me` error has also been reported by a Free-plan account even after adding token permissions, so changing the token alone will not fix a Free-plan account. See [Containers pricing](https://developers.cloudflare.com/containers/platform/pricing/) and the [matching Cloudflare developer-platform report](https://github.com/cloudflare/developer-platform/issues/26).
+
+If Workers Paid is already active, open **Workers & Pages → `trading` → Settings → Builds → API token**. Select a user API token scoped to this account with:
 
 - **Account → Containers: Edit**
 - **Account → Workers Scripts: Edit**
 - **Zone → Workers Routes: Edit** only if this Worker is also changing a custom domain or route
 
-The default token generated for Workers Builds includes Workers Scripts, KV and R2 permissions, but does not include Containers permission. After selecting the corrected token, rerun the production build. Also confirm the account is on **Workers Paid**, which is required for Containers. If the corrected token and paid plan are already in place, the short log is missing the API response details; inspect the full Wrangler log or run `npm run cf:deploy` locally while authenticated with `npx wrangler login` to distinguish a Workers Builds token issue from account entitlement.
+The default token generated for Workers Builds includes Workers Scripts, KV and R2 permissions, but does not include Containers permission. After activating Workers Paid or selecting a token with the listed permissions, rerun the production build. If the paid plan and token permissions are both correct, the short log is missing the API response details; inspect the full Wrangler log or run `npm run cf:deploy` locally while authenticated with `npx wrangler login` to distinguish a Workers Builds token issue from account entitlement.
 
 Cloudflare can upload and activate the Worker before the Container deployment fails, so an uploaded Worker or visible static dashboard does not confirm the backend deployed successfully.
 
