@@ -294,12 +294,13 @@ apiRouter.post('/setup', (req, res) => {
   });
 });
 
-// Signals history, filtering & pagination (SQLite backed)
+// History contains only persisted live engine signals from Indicator and Analysis.
 apiRouter.get('/signals', (req, res) => {
-  const { source, origin, grade, session, regime, status, direction, limit, offset } = req.query;
+  const { source, grade, session, regime, status, direction, limit, offset } = req.query;
   const result = sqliteStore.getAllSignals({
     source: source === 'CONFLUENCE' ? undefined : source as string,
-    origin: (origin as string) || 'engine_live',
+    sources: ['INDICATOR', 'ANALYSIS'],
+    origin: 'engine_live',
     agreement: source === 'CONFLUENCE' ? 'BOTH_SAME_DIR' : undefined,
     grade: grade as string,
     session: session as string,
@@ -352,13 +353,13 @@ apiRouter.get('/signals/chain/verify', (req, res) => {
   res.json({ success: true, ...result });
 });
 
-// Summary Statistics with Wilson CI, Expectancy, Sample Gating (Rule 2: n < 30 insufficient sample)
+// Performance statistics for persisted live Indicator and Analysis signals.
 apiRouter.get('/signals/history/stats', (req, res) => {
   const source = (req.query.source as string) || 'ALL';
-  const origin = (req.query.origin as string) || 'engine_live';
   const { signals } = sqliteStore.getAllSignals({
     source: source === 'ALL' || source === 'CONFLUENCE' ? undefined : source,
-    origin,
+    sources: ['INDICATOR', 'ANALYSIS'],
+    origin: 'engine_live',
     agreement: source === 'CONFLUENCE' ? 'BOTH_SAME_DIR' : undefined,
     limit: 10000,
   });
@@ -398,7 +399,11 @@ apiRouter.get('/signals/history/stats', (req, res) => {
 });
 
 apiRouter.get('/signals/history/source-compare', (_req, res) => {
-  const { signals: allSignals } = sqliteStore.getAllSignals({ origin: 'engine_live', limit: 10000 });
+  const { signals: allSignals } = sqliteStore.getAllSignals({
+    sources: ['INDICATOR', 'ANALYSIS'],
+    origin: 'engine_live',
+    limit: 10000,
+  });
   const signals = allSignals.filter((signal) => signal.source !== 'UNKNOWN_LEGACY');
   const indicator = signals.filter((signal) => signal.source === 'INDICATOR');
   const analysis = signals.filter((signal) => signal.source === 'ANALYSIS');
@@ -468,8 +473,12 @@ apiRouter.post('/signals/:id/notes', (req, res) => {
 });
 
 // Export CSV of historical signals
-apiRouter.get('/signals/export/csv', (req, res) => {
-  const { signals } = sqliteStore.getAllSignals({ limit: 10000 });
+apiRouter.get('/signals/export/csv', (_req, res) => {
+  const { signals } = sqliteStore.getAllSignals({
+    sources: ['INDICATOR', 'ANALYSIS'],
+    origin: 'engine_live',
+    limit: 10000,
+  });
   const headers = [
     'id',
     'source',
@@ -540,8 +549,12 @@ apiRouter.get('/signals/export/csv', (req, res) => {
 });
 
 // Export JSON of historical signals
-apiRouter.get('/signals/export/json', (req, res) => {
-  const { signals } = sqliteStore.getAllSignals({ limit: 10000 });
+apiRouter.get('/signals/export/json', (_req, res) => {
+  const { signals } = sqliteStore.getAllSignals({
+    sources: ['INDICATOR', 'ANALYSIS'],
+    origin: 'engine_live',
+    limit: 10000,
+  });
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', 'attachment; filename="signals_history.json"');
   res.json({ success: true, signals });

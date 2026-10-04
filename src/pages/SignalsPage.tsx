@@ -41,8 +41,8 @@ import {
   Zap,
 } from 'lucide-react';
 
-const formatGatedPercent = (value: number | undefined, isSufficient: boolean | undefined, sampleCount: number | undefined) =>
-  isSufficient ? `${value ?? 0}%` : `insufficient sample (n=${sampleCount ?? 0})`;
+const formatObservedPercent = (value: number | undefined, observationCount: number | undefined) =>
+  (observationCount ?? 0) > 0 ? `${value ?? 0}%` : '—';
 
 export const SignalsPage: React.FC = () => {
   const [activeView, setActiveView] = useState<'system' | 'my_trades' | 'compare' | 'source_compare'>('system');
@@ -262,6 +262,10 @@ export const SignalsPage: React.FC = () => {
     return true;
   });
 
+  const resolvedSampleCount = summaryStats?.sampleCount ?? 0;
+  const triggeredSampleCount = summaryStats?.triggeredCount ?? 0;
+  const totalSignalCount = summaryStats?.totalSignals ?? 0;
+
   return (
     <div className="flex-1 bg-[#06080c] p-4 lg:p-6 space-y-6 overflow-y-auto font-mono select-none text-slate-200">
       {/* Top Header & View Mode Switcher */}
@@ -404,9 +408,9 @@ export const SignalsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* SUMMARY PERFORMANCE STRIP (Rule 2: Minimum sample n < 30 displays warning badge) */}
+      {/* Summary metrics use only persisted live Indicator and Analysis signals. */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Card 1: Win Rate & Sample Gate */}
+        {/* Card 1: Win Rate */}
         <div className="bg-[#0b0f17] border border-white/[0.08] rounded-xl p-3 shadow-lg relative overflow-hidden">
           <div className="text-[10px] text-slate-400 uppercase tracking-wider flex items-center justify-between">
             <span>Win Rate (Wilson 95% CI)</span>
@@ -414,22 +418,18 @@ export const SignalsPage: React.FC = () => {
           </div>
 
           <div className="mt-2 flex items-baseline gap-2">
-            {summaryStats?.isSampleSufficient ? (
+            {resolvedSampleCount > 0 ? (
               <span className="text-xl lg:text-2xl font-black text-emerald-400">
-                {summaryStats.winRate}%
+                {summaryStats?.winRate ?? 0}%
               </span>
             ) : (
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 block">
-                  insufficient sample (n={summaryStats?.sampleCount || 0})
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Raw: {summaryStats?.wins || 0}W · {summaryStats?.losses || 0}L · {summaryStats?.beCount || 0}BE
-                </span>
-              </div>
+              <span className="text-xl lg:text-2xl font-black text-slate-500">—</span>
             )}
           </div>
 
+          {resolvedSampleCount > 0 && !summaryStats?.isSampleSufficient && (
+            <div className="text-[10px] text-slate-400 mt-1">Resolved outcomes: {resolvedSampleCount}</div>
+          )}
           {summaryStats?.isSampleSufficient && (
             <div className="text-[10px] text-slate-400 mt-1">
               CI: [{summaryStats.wilsonInterval[0]}%, {summaryStats.wilsonInterval[1]}%] (n={summaryStats.sampleCount})
@@ -444,20 +444,15 @@ export const SignalsPage: React.FC = () => {
             <Flame className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span
-              className={`text-xl lg:text-2xl font-black ${
-                (summaryStats?.expectancyR || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {(summaryStats?.expectancyR || 0) >= 0 ? '+' : ''}
-              {summaryStats?.expectancyR ?? 0.0}R
+            <span className={`text-xl lg:text-2xl font-black ${resolvedSampleCount === 0 ? 'text-slate-500' : (summaryStats?.expectancyR || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {resolvedSampleCount > 0 ? `${(summaryStats?.expectancyR || 0) >= 0 ? '+' : ''}${summaryStats?.expectancyR ?? 0.0}R` : '—'}
             </span>
             <span className="text-[10px] text-slate-400">
-              Avg: {(summaryStats?.avgR || 0) >= 0 ? '+' : ''}{summaryStats?.avgR ?? 0.0}R
+              Avg: {resolvedSampleCount > 0 ? `${(summaryStats?.avgR || 0) >= 0 ? '+' : ''}${summaryStats?.avgR ?? 0.0}R` : '—'}
             </span>
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            Profit Factor: <span className="font-bold text-slate-200">{summaryStats?.profitFactor ?? 0}</span>
+            Profit Factor: <span className="font-bold text-slate-200">{resolvedSampleCount > 0 ? summaryStats?.profitFactor ?? 0 : '—'}</span>
           </div>
         </div>
 
@@ -470,19 +465,19 @@ export const SignalsPage: React.FC = () => {
           <div className="mt-2 grid grid-cols-3 gap-1 text-center text-xs">
             <div className="bg-white/[0.03] p-1 rounded">
               <span className="text-[9px] text-slate-400 block">TP1</span>
-              <span className="font-bold text-emerald-300">{formatGatedPercent(summaryStats?.tp1HitRate, summaryStats?.isSampleSufficient, summaryStats?.sampleCount)}</span>
+              <span className="font-bold text-emerald-300">{formatObservedPercent(summaryStats?.tp1HitRate, triggeredSampleCount)}</span>
             </div>
             <div className="bg-white/[0.03] p-1 rounded">
               <span className="text-[9px] text-slate-400 block">TP2</span>
-              <span className="font-bold text-cyan-300">{formatGatedPercent(summaryStats?.tp2HitRate, summaryStats?.isSampleSufficient, summaryStats?.sampleCount)}</span>
+              <span className="font-bold text-cyan-300">{formatObservedPercent(summaryStats?.tp2HitRate, triggeredSampleCount)}</span>
             </div>
             <div className="bg-white/[0.03] p-1 rounded">
               <span className="text-[9px] text-slate-400 block">TP3</span>
-              <span className="font-bold text-purple-300">{formatGatedPercent(summaryStats?.tp3HitRate, summaryStats?.isSampleSufficient, summaryStats?.sampleCount)}</span>
+              <span className="font-bold text-purple-300">{formatObservedPercent(summaryStats?.tp3HitRate, triggeredSampleCount)}</span>
             </div>
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            Fill Rate: <span className="font-bold text-slate-200">{formatGatedPercent(summaryStats?.fillRate, summaryStats?.isSampleSufficient, summaryStats?.sampleCount)}</span>
+            Fill Rate: <span className="font-bold text-slate-200">{formatObservedPercent(summaryStats?.fillRate, totalSignalCount)}</span>
           </div>
         </div>
 
@@ -494,11 +489,11 @@ export const SignalsPage: React.FC = () => {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-xl lg:text-2xl font-black text-rose-400">
-              {formatGatedPercent(summaryStats?.slHitRate, summaryStats?.isSampleSufficient, summaryStats?.sampleCount)}
+              {formatObservedPercent(summaryStats?.slHitRate, triggeredSampleCount)}
             </span>
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            Max Drawdown: <span className="text-rose-400 font-bold">-{summaryStats?.maxDrawdownR ?? 0}R</span>
+            Max Drawdown: <span className="text-rose-400 font-bold">{resolvedSampleCount > 0 ? `-${summaryStats?.maxDrawdownR ?? 0}R` : '—'}</span>
           </div>
         </div>
 
@@ -511,14 +506,14 @@ export const SignalsPage: React.FC = () => {
           <div className="mt-2 text-xs flex justify-between">
             <span className="text-slate-400">Avg to TP1:</span>
             <span className="font-bold text-slate-100">
-              {summaryStats?.avgTimeToTp1 ? `${Math.round(summaryStats.avgTimeToTp1 / 60)}m` : 'N/A'}
+              {summaryStats?.avgTimeToTp1 ? `${Math.round(summaryStats.avgTimeToTp1 / 60)}m` : '—'}
             </span>
           </div>
           <div className="mt-1 text-xs flex justify-between">
             <span className="text-slate-400">Streaks:</span>
-            <span className="font-bold text-emerald-400">{summaryStats?.longestWinStreak ?? 0}W</span>
+            <span className="font-bold text-emerald-400">{resolvedSampleCount > 0 ? `${summaryStats?.longestWinStreak ?? 0}W` : '—'}</span>
             <span className="text-slate-500">/</span>
-            <span className="font-bold text-rose-400">{summaryStats?.longestLossStreak ?? 0}L</span>
+            <span className="font-bold text-rose-400">{resolvedSampleCount > 0 ? `${summaryStats?.longestLossStreak ?? 0}L` : '—'}</span>
           </div>
         </div>
 
@@ -533,7 +528,7 @@ export const SignalsPage: React.FC = () => {
             <span>100% Immutable Chain</span>
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            Ambiguous: {summaryStats?.percentAmbiguous ?? 0}% · Reconstructed: {summaryStats?.percentReconstructed ?? 0}%
+            Ambiguous: {totalSignalCount > 0 ? `${summaryStats?.percentAmbiguous ?? 0}%` : '—'} · Reconstructed: {totalSignalCount > 0 ? `${summaryStats?.percentReconstructed ?? 0}%` : '—'}
           </div>
         </div>
       </div>
@@ -553,12 +548,14 @@ export const SignalsPage: React.FC = () => {
               return (
                 <div key={key} className="bg-[#0b0f17] border border-white/[0.08] rounded-lg p-4 space-y-2">
                   <h2 className="text-xs font-bold uppercase text-slate-200">{label}</h2>
-                  <div className="text-[11px] text-slate-400">Signals {stats.totalSignals} · resolved n={stats.sampleCount}</div>
+                  <div className="text-[11px] text-slate-400">Signals {stats.totalSignals} · resolved {stats.sampleCount}</div>
                   <div className="text-sm font-bold text-[#F5C451]">
-                    {stats.isSampleSufficient ? `${stats.winRate}% win rate` : `insufficient sample (n=${stats.sampleCount})`}
+                    {stats.sampleCount > 0 ? `${stats.winRate}% win rate` : '—'}
                   </div>
                   {stats.isSampleSufficient && <div className="text-[11px] text-slate-400">Wilson 95% CI [{stats.wilsonInterval[0]}%, {stats.wilsonInterval[1]}%]</div>}
-                  <div className="text-[11px] text-slate-300">Expectancy {stats.expectancyR}R · PF {stats.profitFactor} · Max DD {stats.maxDrawdownR}R</div>
+                  <div className="text-[11px] text-slate-300">
+                    Expectancy {stats.sampleCount > 0 ? `${stats.expectancyR}R` : '—'} · PF {stats.sampleCount > 0 ? stats.profitFactor : '—'} · Max DD {stats.sampleCount > 0 ? `${stats.maxDrawdownR}R` : '—'}
+                  </div>
                 </div>
               );
             })}
@@ -569,8 +566,8 @@ export const SignalsPage: React.FC = () => {
               {Object.entries(sourceComparison.agreementMatrix).map(([key, stats]: [string, any]) => (
                 <div key={key} className="border-l-2 border-cyan-500/40 pl-3">
                   <div className="text-[10px] text-slate-400">{key}</div>
-                  <div className="text-xs font-bold text-slate-200">{stats.isSampleSufficient ? `${stats.winRate}%` : `insufficient sample (n=${stats.sampleCount})`}</div>
-                  <div className="text-[10px] text-slate-500">Expectancy {stats.expectancyR}R</div>
+                  <div className="text-xs font-bold text-slate-200">{stats.sampleCount > 0 ? `${stats.winRate}%` : '—'}</div>
+                  <div className="text-[10px] text-slate-500">Expectancy {stats.sampleCount > 0 ? `${stats.expectancyR}R` : '—'}</div>
                 </div>
               ))}
             </div>
@@ -578,7 +575,7 @@ export const SignalsPage: React.FC = () => {
           <div className="bg-[#0b0f17] border border-white/[0.08] rounded-lg p-4 text-xs">
             <h2 className="font-bold uppercase text-slate-200">Paired outcomes</h2>
             <p className="text-slate-400 mt-2">
-              Analysis minus Indicator: {sourceComparison.paired.isSampleSufficient ? `${sourceComparison.paired.averageAnalysisMinusIndicatorR}R` : `insufficient sample (n=${sourceComparison.paired.sampleCount})`}
+              Analysis minus Indicator: {sourceComparison.paired.sampleCount > 0 ? `${sourceComparison.paired.averageAnalysisMinusIndicatorR}R` : '—'}
               {' '}· Bootstrap CI not available yet.
             </p>
           </div>
@@ -671,7 +668,9 @@ export const SignalsPage: React.FC = () => {
                   {filteredSignals.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="p-8 text-center text-slate-500">
-                        No signals matching the selected criteria.
+                        {totalCount === 0
+                          ? 'No live Indicator or Analysis signals have been recorded yet.'
+                          : 'No signals match the selected filters.'}
                       </td>
                     </tr>
                   ) : (
@@ -1175,18 +1174,16 @@ export const SignalsPage: React.FC = () => {
                     <td className="p-3 text-emerald-400 font-bold">{g.wins}</td>
                     <td className="p-3 text-rose-400 font-bold">{g.losses}</td>
                     <td className="p-3">
-                      {g.isSampleSufficient ? (
+                      {g.total > 0 ? (
                         <span className="font-bold text-slate-200">
-                          {g.winRate}% [{g.wilsonInterval[0]}%, {g.wilsonInterval[1]}%]
+                          {g.winRate}%{g.isSampleSufficient ? ` [${g.wilsonInterval[0]}%, ${g.wilsonInterval[1]}%]` : ''}
                         </span>
                       ) : (
-                        <span className="text-amber-400 text-[10px] bg-amber-400/10 px-1.5 py-0.5 rounded">
-                          insufficient sample (n={g.total})
-                        </span>
+                        <span className="text-slate-500">—</span>
                       )}
                     </td>
-                    <td className="p-3 text-slate-200">{g.avgR}R</td>
-                    <td className="p-3 font-bold text-emerald-400">{g.expectancyR}R</td>
+                    <td className="p-3 text-slate-200">{g.total > 0 ? `${g.avgR}R` : '—'}</td>
+                    <td className="p-3 font-bold text-emerald-400">{g.total > 0 ? `${g.expectancyR}R` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1212,9 +1209,9 @@ export const SignalsPage: React.FC = () => {
                   <tr key={s.key} className="hover:bg-white/[0.02]">
                     <td className="p-3 font-bold text-slate-200">{s.name} Session</td>
                     <td className="p-3 text-slate-300">{s.total}</td>
-                    <td className="p-3 font-bold text-slate-200">{s.winRate}%</td>
-                    <td className="p-3 font-bold text-emerald-400">+{s.expectancyR}R</td>
-                    <td className="p-3 text-slate-400">[{s.wilsonInterval[0]}%, {s.wilsonInterval[1]}%]</td>
+                    <td className="p-3 font-bold text-slate-200">{s.total > 0 ? `${s.winRate}%` : '—'}</td>
+                    <td className="p-3 font-bold text-emerald-400">{s.total > 0 ? `${s.expectancyR >= 0 ? '+' : ''}${s.expectancyR}R` : '—'}</td>
+                    <td className="p-3 text-slate-400">{s.total > 0 ? `[${s.wilsonInterval[0]}%, ${s.wilsonInterval[1]}%]` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

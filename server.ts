@@ -1,9 +1,9 @@
+import 'dotenv/config';
 import http from 'http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'path';
 import express from 'express';
-import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
 import { apiRouter } from './server/routes.ts';
 import { marketProvider } from './server/market/dataProvider.ts';
@@ -13,8 +13,7 @@ import { startSourceIngest } from './server/engine/sourceIngest.ts';
 import { signalEmitter } from './server/engine/signalEmitter.ts';
 import { sqliteStore } from './server/db/sqliteStore.ts';
 import { dbStore } from './server/db/store.ts';
-
-dotenv.config();
+import { neonSnapshotStore } from './server/db/neonSnapshotStore.ts';
 
 const app = express();
 const port = 3000;
@@ -57,7 +56,7 @@ function decodeSnapshotValue(value: unknown): Buffer | null {
   return bytes;
 }
 
-function writeCloudflareStateFile(fileName: string, bytes: Buffer | null) {
+function writeSnapshotStateFile(fileName: string, bytes: Buffer | null) {
   const allowedFiles = new Set(['market_news.json', 'weights.indicator.json', 'weights.analysis.json']);
   if (!allowedFiles.has(fileName)) throw new Error('Snapshot contains an unsupported file.');
   if (bytes === null) return;
@@ -66,6 +65,64 @@ function writeCloudflareStateFile(fileName: string, bytes: Buffer | null) {
   const temporaryPath = `${filePath}.restore.tmp`;
   fs.writeFileSync(temporaryPath, bytes);
   fs.renameSync(temporaryPath, filePath);
+}
+
+function createNeonSnapshot() {
+  const dataDir = path.resolve(process.cwd(), 'data');
+  const readOptional = (filePath: string) => fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
+  return {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    files: {
+      sqlite: encodeSnapshotValue(sqliteStore.exportSnapshot()),
+      jsonStore: encodeSnapshotValue(dbStore.exportSnapshot()),
+      marketNews: encodeSnapshotValue(readOptional(path.join(dataDir, 'market_news.json'))),
+      weightsIndicator: encodeSnapshotValue(readOptional(path.resolve(process.cwd(), 'weights.indicator.json'))),
+      weightsAnalysis: encodeSnapshotValue(readOptional(path.resolve(process.cwd(), 'weights.analysis.json'))),
+    },
+  };
+}
+
+function restoreNeonSnapshotPayload(payload: string) {
+  const snapshot = JSON.parse(payload) as {
+    version?: unknown;
+    files?: Record<string, unknown>;
+  };
+  if (snapshot?.version !== 1 || !snapshot.files) throw new Error('Unsupported snapshot version.');
+
+  const sqlite = decodeSnapshotValue(snapshot.files.sqlite);
+  const jsonStore = decodeSnapshotValue(snapshot.files.jsonStore);
+  const marketNews = decodeSnapshotValue(snapshot.files.marketNews);
+  const weightsIndicator = decodeSnapshotValue(snapshot.files.weightsIndicator);
+  const weightsAnalysis = decodeSnapshotValue(snapshot.files.weightsAnalysis);
+  if (!sqlite || !jsonStore || !weightsIndicator || !weightsAnalysis) throw new Error('Snapshot is missing required state.');
+
+  sqliteStore.restoreSnapshot(sqlite);
+  dbStore.restoreSnapshot(jsonStore.toString('utf8'));
+  writeSnapshotStateFile('market_news.json', marketNews);
+  writeSnapshotStateFile('weights.indicator.json', weightsIndicator);
+  writeSnapshotStateFile('weights.analysis.json', weightsAnalysis);
+}
+
+async function restoreLatestNeonSnapshot(): Promise<boolean> {
+  const snapshots = await neonSnapshotStore.readSnapshots();
+  if (snapshots.length === 0) return false;
+
+  for (const stored of snapshots) {
+    try {
+      if (!stored.checksumValid) throw new Error('Neon snapshot checksum does not match.');
+      restoreNeonSnapshotPayload(stored.payload);
+      return true;
+    } catch (error) {
+      console.error(`Could not restore Neon ${stored.key} snapshot:`, error);
+    }
+  }
+
+  throw new Error('No valid Neon snapshot could be restored; refusing to start with empty state.');
+}
+
+async function saveNeonSnapshot() {
+  await neonSnapshotStore.saveLatest(JSON.stringify(createNeonSnapshot()));
 }
 
 function startBackgroundServices() {
@@ -79,53 +136,27 @@ function startBackgroundServices() {
 
 app.get('/health', (_req, res) => res.json({ ok: true, managed: isCloudflareContainer }));
 
-app.get('/_cloudflare/backup', (req, res) => {
+app.post('/_cloudflare/backup', async (req, res) => {
   if (!isAuthorizedCloudflareRequest(req)) return res.status(404).end();
   try {
-    const dataDir = path.resolve(process.cwd(), 'data');
-    const readOptional = (filePath: string) => fs.existsSync(filePath) ? fs.readFileSync(filePath) : null;
-    res.json({
-      version: 1,
-      createdAt: new Date().toISOString(),
-      files: {
-        sqlite: encodeSnapshotValue(sqliteStore.exportSnapshot()),
-        jsonStore: encodeSnapshotValue(dbStore.exportSnapshot()),
-        marketNews: encodeSnapshotValue(readOptional(path.join(dataDir, 'market_news.json'))),
-        weightsIndicator: encodeSnapshotValue(readOptional(path.resolve(process.cwd(), 'weights.indicator.json'))),
-        weightsAnalysis: encodeSnapshotValue(readOptional(path.resolve(process.cwd(), 'weights.analysis.json'))),
-      },
-    });
+    const snapshot = createNeonSnapshot();
+    await neonSnapshotStore.saveLatest(JSON.stringify(snapshot));
+    res.json({ ok: true, createdAt: snapshot.createdAt });
   } catch (error) {
     console.error('Cloudflare state snapshot failed:', error);
     res.status(500).json({ error: 'State snapshot failed.' });
   }
 });
 
-app.post('/_cloudflare/restore', express.json({ limit: '128mb' }), (req, res) => {
+app.post('/_cloudflare/restore', async (req, res) => {
   if (!isAuthorizedCloudflareRequest(req)) return res.status(404).end();
   try {
-    const snapshot = req.body as {
-      version?: unknown;
-      files?: Record<string, unknown>;
-    };
-    if (snapshot?.version !== 1 || !snapshot.files) throw new Error('Unsupported snapshot version.');
-
-    const sqlite = decodeSnapshotValue(snapshot.files.sqlite);
-    const jsonStore = decodeSnapshotValue(snapshot.files.jsonStore);
-    const marketNews = decodeSnapshotValue(snapshot.files.marketNews);
-    const weightsIndicator = decodeSnapshotValue(snapshot.files.weightsIndicator);
-    const weightsAnalysis = decodeSnapshotValue(snapshot.files.weightsAnalysis);
-    if (!sqlite || !jsonStore || !weightsIndicator || !weightsAnalysis) throw new Error('Snapshot is missing required state.');
-
-    sqliteStore.restoreSnapshot(sqlite);
-    dbStore.restoreSnapshot(jsonStore.toString('utf8'));
-    writeCloudflareStateFile('market_news.json', marketNews);
-    writeCloudflareStateFile('weights.indicator.json', weightsIndicator);
-    writeCloudflareStateFile('weights.analysis.json', weightsAnalysis);
+    const restored = await restoreLatestNeonSnapshot();
+    if (!restored) return res.status(204).end();
     res.json({ ok: true });
   } catch (error) {
-    console.error('Cloudflare state restore failed:', error);
-    res.status(400).json({ error: 'State restore failed.' });
+    console.error('Neon state restore failed:', error);
+    res.status(500).json({ error: 'State restore failed.' });
   }
 });
 
@@ -265,11 +296,26 @@ async function startServer() {
     });
   }
 
+  if (!isCloudflareContainer && process.env.NEON_DATABASE_URL) {
+    const restored = await restoreLatestNeonSnapshot();
+    console.log(restored ? 'Restored local app state from Neon.' : 'No Neon snapshot found; keeping local app state.');
+    await saveNeonSnapshot();
+
+    const configuredInterval = Number(process.env.NEON_SNAPSHOT_INTERVAL_MS);
+    const intervalMs = Number.isFinite(configuredInterval) && configuredInterval >= 60_000
+      ? Math.min(configuredInterval, 3_600_000)
+      : 300_000;
+    const snapshotTimer = setInterval(() => {
+      saveNeonSnapshot().catch((error) => console.error('Local Neon snapshot failed:', error));
+    }, intervalMs);
+    snapshotTimer.unref();
+  }
+
   server.listen(port, '0.0.0.0', () => {
     console.log(`QRA Gold Terminal running at http://0.0.0.0:${port}`);
   });
 
-  // In Cloudflare Containers, the Worker restores R2 state before starting live services.
+  // In Cloudflare Containers, the Worker restores Neon state before starting live services.
   if (!isCloudflareContainer) startBackgroundServices();
 }
 

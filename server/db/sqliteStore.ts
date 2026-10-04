@@ -742,6 +742,7 @@ export class SqliteStore {
 
   public getAllSignals(filter?: {
     source?: string;
+    sources?: string[];
     origin?: string;
     agreement?: string;
     grade?: string;
@@ -758,6 +759,10 @@ export class SqliteStore {
     if (filter?.source && filter.source !== 'ALL') {
       conditions.push('s.source = ?');
       params.push(filter.source);
+    }
+    if (filter?.sources?.length) {
+      conditions.push(`s.source IN (${filter.sources.map(() => '?').join(', ')})`);
+      params.push(...filter.sources);
     }
     if (filter?.origin && filter.origin !== 'ALL') {
       conditions.push('s.origin = ?');

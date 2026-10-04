@@ -31,12 +31,6 @@
       "storage": "sqlite"
     }
   },
-  "r2_buckets": [
-    {
-      "binding": "BACKUPS",
-      "bucket_name": "qra-gold-terminal-backups"
-    }
-  ],
   "triggers": {
     "crons": ["*/5 * * * *"]
   },

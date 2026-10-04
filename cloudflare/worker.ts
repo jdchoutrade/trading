@@ -2,9 +2,10 @@ import { Container, getContainer } from '@cloudflare/containers';
 
 interface Env {
   ASSETS: Fetcher;
-  BACKUPS: R2Bucket;
   BACKEND: DurableObjectNamespace<QraBackend>;
   CF_INTERNAL_TOKEN: string;
+  NEON_DATABASE_URL: string;
+  NEON_SNAPSHOT_SCOPE?: string;
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
   TV_SESSION?: string;
@@ -17,8 +18,6 @@ interface Env {
   LIVE_AI_REVIEW?: string;
 }
 
-const LATEST_SNAPSHOT_KEY = 'terminal/latest.json';
-const PREVIOUS_SNAPSHOT_KEY = 'terminal/previous.json';
 const INTERNAL_TOKEN_HEADER = 'x-qra-internal-token';
 
 export class QraBackend extends Container<Env> {
@@ -36,6 +35,8 @@ export class QraBackend extends Container<Env> {
       CF_CONTAINER_MANAGED: 'true',
       GOLD_DESK_DB_PATH: '/app/data/gold_desk.db',
       CF_INTERNAL_TOKEN: env.CF_INTERNAL_TOKEN,
+      NEON_DATABASE_URL: env.NEON_DATABASE_URL,
+      NEON_SNAPSHOT_SCOPE: env.NEON_SNAPSHOT_SCOPE || 'cloudflare',
     };
 
     for (const name of [
@@ -56,28 +57,12 @@ export class QraBackend extends Container<Env> {
   }
 
   override async onStart(): Promise<void> {
-    let foundSnapshot = false;
-    let restored = false;
-
-    for (const key of [LATEST_SNAPSHOT_KEY, PREVIOUS_SNAPSHOT_KEY]) {
-      const object = await this.bindings.BACKUPS.get(key);
-      if (!object) continue;
-      foundSnapshot = true;
-
-      const response = await this.containerFetch('http://localhost/_cloudflare/restore', {
-        method: 'POST',
-        headers: { [INTERNAL_TOKEN_HEADER]: this.bindings.CF_INTERNAL_TOKEN, 'content-type': 'application/json' },
-        body: object.body,
-      });
-      if (response.ok) {
-        restored = true;
-        break;
-      }
-      console.error(`Could not restore ${key}:`, response.status, await response.text());
-    }
-
-    if (foundSnapshot && !restored) {
-      throw new Error('No valid Cloudflare R2 snapshot could be restored; refusing to start with empty state.');
+    const restoreResponse = await this.containerFetch('http://localhost/_cloudflare/restore', {
+      method: 'POST',
+      headers: { [INTERNAL_TOKEN_HEADER]: this.bindings.CF_INTERNAL_TOKEN },
+    });
+    if (!restoreResponse.ok && restoreResponse.status !== 204) {
+      throw new Error(`Could not restore Neon state: ${restoreResponse.status} ${await restoreResponse.text()}`);
     }
 
     const startResponse = await this.containerFetch('http://localhost/_cloudflare/start', {
@@ -92,19 +77,10 @@ export class QraBackend extends Container<Env> {
     if (state.status !== 'healthy') return;
 
     const response = await this.containerFetch('http://localhost/_cloudflare/backup', {
+      method: 'POST',
       headers: { [INTERNAL_TOKEN_HEADER]: this.bindings.CF_INTERNAL_TOKEN },
     });
     if (!response.ok) throw new Error(`QRA state backup failed: ${response.status}`);
-
-    const current = await this.bindings.BACKUPS.get(LATEST_SNAPSHOT_KEY);
-    if (current) {
-      await this.bindings.BACKUPS.put(PREVIOUS_SNAPSHOT_KEY, current.body, {
-        httpMetadata: { contentType: 'application/json' },
-      });
-    }
-    await this.bindings.BACKUPS.put(LATEST_SNAPSHOT_KEY, response.body, {
-      httpMetadata: { contentType: 'application/json' },
-    });
   }
 }
 
