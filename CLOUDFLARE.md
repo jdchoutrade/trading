@@ -6,7 +6,8 @@ The Worker keeps `/api/*`, `/ws` and `/health` on the backend; all other routes 
 
 ## Prerequisites
 
-- A Cloudflare account with Workers, Durable Objects and Containers enabled.
+- A Cloudflare **Workers Paid** plan on the account that owns this Worker. Containers are unavailable on Workers Free; the Paid plan starts at $5/month and Container overage can apply. See [Containers pricing](https://developers.cloudflare.com/containers/platform/pricing/).
+- Durable Objects and Containers enabled for that same Cloudflare account.
 - A Neon Postgres database and its pooled connection string.
 - Docker Desktop (or another working Docker daemon); Wrangler builds and uploads the Linux container image during deploy.
 - Node.js 22 or newer and npm.
@@ -65,6 +66,12 @@ For `npm run cf:dev`, use `.dev.vars` for local-only Cloudflare Worker secrets (
 ## Git connected Cloudflare builds
 
 Connect this repository as a **Worker with Workers Builds**, since the deployment includes a Container and Durable Object. The Worker name in `wrangler.jsonc` must match the connected Worker (`trading`). Use `npm run build` as the Build command and `npx wrangler deploy` as the Deploy command. The obsolete Bun lockfile has been removed; `package-lock.json` is the dependency lockfile for this npm project. Do not configure this as a Pages-only static deployment, which would omit the backend Container.
+
+In **Worker Settings → Builds → API token**, select a user API token scoped to the account that owns `trading`. Give it **Account: Containers Edit** and **Account: Workers Scripts Edit** (plus **Zone: Workers Routes Edit** only if deploying a zone route). The automatically generated Workers Builds token does not include Containers permission by default; see [Workers Builds token configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) and [Cloudflare API token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
+
+### Troubleshooting `/containers/me`
+
+If a build completes the Vite and Docker steps, uploads the Worker, then fails at `/accounts/<account>/containers/me`, the frontend bundle and Dockerfile are not the failing steps. Confirm the account is on Workers Paid and the selected Workers Builds API token has **Containers Edit** for that exact account. If both are already set, open the full build log and check the HTTP status/response body for the Containers API request; the short Wrangler summary may omit the reason.
 
 ## Data and operating notes
 
